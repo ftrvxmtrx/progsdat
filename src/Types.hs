@@ -2,6 +2,7 @@ module Types where
 
 import Data.Word (Word16)
 import Data.ByteString (ByteString)
+import Data.Vector (Vector)
 
 data Op = OpReturn !Word16
         | OpMulF !Word16 !Word16 !Word16
@@ -60,7 +61,7 @@ data Op = OpReturn !Word16
         | OpOr !Word16 !Word16 !Word16
         | OpBitAnd !Word16 !Word16 !Word16
         | OpBitOr !Word16 !Word16 !Word16
-        deriving (Eq, Show)
+        deriving Show
 
 data Def = DefVoid !Bool !Word16 !ByteString
          | DefS !Bool !Word16 !ByteString
@@ -70,7 +71,7 @@ data Def = DefVoid !Bool !Word16 !ByteString
          | DefField !Bool !Word16 !ByteString
          | DefFunc !Bool !Word16 !ByteString
          | DefPtr !Bool !Word16 !ByteString
-         deriving (Eq, Show)
+         deriving Show
 
 data Func = Func { funcName       :: !ByteString
                  , funcStart      :: !Int
@@ -80,16 +81,13 @@ data Func = Func { funcName       :: !ByteString
           | Builtin { builtinName      :: !ByteString
                     , builtinId        :: !Int
                     , builtinNumParams :: !Int
-                    } deriving (Eq, Show)
+                    }
+          deriving Show
 
-funcNumParams :: Func -> Int
-funcNumParams =
-  length . funcParamSizes
-
-data Progs = Progs { progsOps          :: [Op]
-                   , progsGlobals      :: [Def]
-                   , progsFields       :: [Def]
-                   , progsFuncs        :: [Func]
+data Progs = Progs { progsOps          :: Vector Op
+                   , progsGlobals      :: Vector Def
+                   , progsFields       :: Vector Def
+                   , progsFuncs        :: Vector Func
                    , progsStrings      :: ByteString
                    , progsGlobalValues :: ByteString
-                   } deriving (Eq, Show)
+                   } deriving Show

@@ -1,4 +1,4 @@
-module Parse (parseProgs) where
+module Parse (parseProgs, getNullTerminatedString) where
 
 import Types
 
@@ -7,9 +7,8 @@ import qualified Data.ByteString.Lazy as L
 import Data.Binary.Get
 import Data.Bits (Bits, clearBit, complement, testBit)
 import Data.List
+import qualified Data.Vector as V
 import Data.Word
-
-import Control.Monad
 
 type SectionParser = Progs -> Int -> Get Progs
 
@@ -23,19 +22,17 @@ parseString progs = do
   return $! getNullTerminatedString progs $ fromIntegral offset
 
 readOffNum :: Get (Int, Int)
-readOffNum = do
-  off <- fmap fromIntegral getWord32le
-  num <- fmap fromIntegral getWord32le
-  return (off, num)
+readOffNum =
+  (,) <$> fmap fromIntegral getWord32le <*> fmap fromIntegral getWord32le
 
 parseOps :: SectionParser
 parseOps progs num = do
-  ops <- replicateM num $ mkOp <$> getWord16le <*> getWord16le <*> getWord16le <*> getWord16le
+  ops <- V.replicateM num $ mkOp <$> getWord16le <*> getWord16le <*> getWord16le <*> getWord16le
   return progs{progsOps = ops}
 
-parseDefs :: Progs -> Int -> Get [Def]
+parseDefs :: Progs -> Int -> Get (V.Vector Def)
 parseDefs progs num =
-  replicateM num $ mkDef <$> getWord16le <*> getWord16le <*> parseString progs
+  V.replicateM num $ mkDef <$> getWord16le <*> getWord16le <*> parseString progs
 
 parseGlobals :: SectionParser
 parseGlobals progs num = do
@@ -49,7 +46,7 @@ parseFields progs num = do
 
 parseFuncs :: SectionParser
 parseFuncs progs num = do
-  funcs <- replicateM num $ do
+  funcs <- V.replicateM num $ do
     off <- getWord32le
     localsStart <- fmap fromIntegral getWord32le
     numLocals <- fmap fromIntegral getWord32le
@@ -109,10 +106,10 @@ decoder = do
   p <- sections >>= parseSections progs
   return $ Right p
   where
-    progs = Progs{ progsOps = []
-                 , progsGlobals = []
-                 , progsFields = []
-                 , progsFuncs = []
+    progs = Progs{ progsOps = V.empty
+                 , progsGlobals = V.empty
+                 , progsFields = V.empty
+                 , progsFuncs = V.empty
                  , progsStrings = B.empty
                  , progsGlobalValues = B.empty
                  }
