@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Util (funcNumParams, findFunc, dumpOps, globalAtOffset) where
 
 import Types
@@ -117,7 +116,7 @@ prettyOp progs op =
     OpLoadE a b c -> assignField a b c eAt
     OpLoadField a b c -> assignField a b c fieldAt
     OpLoadFunc a b c -> assignField a b c funcAt
-    OpAddress _ _ _ -> "address"
+    OpAddress _ _ _ -> "FIXME address"
     OpStoreF a c -> fAt c ++ " = " ++ fAt a
     OpStoreV a c -> vAt c ++ " = " ++ vAt a
     OpStoreS a c -> sAt c ++ " = " ++ sAt a
