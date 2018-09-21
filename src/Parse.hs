@@ -7,6 +7,7 @@ import qualified Data.ByteString.Lazy as L
 import Data.Binary.Get
 import Data.Bits (Bits, clearBit, complement, testBit)
 import Data.List
+import Data.Maybe (fromJust)
 import qualified Data.Vector as V
 import Data.Word
 
@@ -59,7 +60,7 @@ parseFuncs progs num = do
     return $ case off `testBit` 31 of
       False -> Func{ funcName = name
                    , funcStart = fromIntegral off
-                   , funcLocals = take numLocals $ iterate' succ localsStart
+                   , funcLocals = map (\x -> LocalAt x) . take numLocals $ iterate' succ localsStart
                    , funcParamSizes = paramSizes
                    }
       True -> Builtin{ builtinName = name
@@ -90,6 +91,21 @@ parseSection progs ((off, num), parser) = do
   skip $ off - soFar
   parser progs num
 
+relink :: Progs -> Progs
+relink progs =
+  progs{ progsFuncs = V.map (\f -> case f of
+                                     Func _ _ _ _ -> f{ funcLocals = relinkLocals $ funcLocals f }
+                                     Builtin _ _ _ -> f
+                            ) $ progsFuncs progs }
+  where
+    globalAtOffset off =
+      fromJust $ find ((==) off . defOffset) $ progsGlobals progs
+    relinkLocals :: [Local] -> [Local]
+    relinkLocals =
+      map $ \l -> case l of
+                    LocalAt off -> Local $ globalAtOffset off
+                    _ -> error "already relinked locals?"
+
 decoder :: Get (Either String Progs)
 decoder = do
   skip 4 -- version
@@ -104,7 +120,7 @@ decoder = do
                  , parseGlobalValues
                  ]
   p <- sections >>= parseSections progs
-  return $ Right p
+  return $ Right (relink p)
   where
     progs = Progs{ progsOps = V.empty
                  , progsGlobals = V.empty

@@ -73,10 +73,34 @@ data Def = DefVoid !Bool !Word16 !ByteString
          | DefPtr !Bool !Word16 !ByteString
          deriving Show
 
+defName :: Def -> ByteString
+defName (DefVoid _ _ name) = name
+defName (DefS _ _ name) = name
+defName (DefF _ _ name) = name
+defName (DefV _ _ name) = name
+defName (DefE _ _ name) = name
+defName (DefField _ _ name) = name
+defName (DefFunc _ _ name) = name
+defName (DefPtr _ _ name) = name
+
+defOffset :: Def -> Word16
+defOffset (DefVoid _ offset _) = offset
+defOffset (DefS _ offset _) = offset
+defOffset (DefF _ offset _) = offset
+defOffset (DefV _ offset _) = offset
+defOffset (DefE _ offset _) = offset
+defOffset (DefField _ offset _) = offset
+defOffset (DefFunc _ offset _) = offset
+defOffset (DefPtr _ offset _) = offset
+
+data Local = LocalAt !Word16
+           | Local Def
+           deriving Show
+
 data Func = Func { funcName       :: !ByteString
                  , funcStart      :: !Int
-                 , funcLocals     :: ![Int]
                  , funcParamSizes :: ![Int]
+                 , funcLocals     :: [Local]
                  }
           | Builtin { builtinName      :: !ByteString
                     , builtinId        :: !Int
