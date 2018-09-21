@@ -1,5 +1,6 @@
 module Util (funcNumParams, findFunc, dumpOps, globalAtOffset) where
 
+import Parse
 import Types
 
 import Control.Monad
@@ -51,6 +52,10 @@ float32At :: Word16 -> BS.ByteString -> Float
 float32At offset bs =
   runGet getFloat32le $ BL.fromStrict $ BS.take 4 $ BS.drop (fromIntegral offset * 4) bs
 
+globalValueS :: Progs -> Word16 -> B.ByteString
+globalValueS progs offset =
+  getNullTerminatedString progs (fromIntegral . word32At offset $ progsGlobalValues progs)
+
 globalValueF :: Progs -> Word16 -> Float
 globalValueF progs offset =
   float32At offset $ progsGlobalValues progs
@@ -67,18 +72,18 @@ globalAsValue progs offset =
     Just d -> case B.unpack $ defName d of
                 "IMMEDIATE" -> case d of
                                  DefVoid _ _ _ -> "void"
-                                 DefS _ _ _ -> show offset
+                                 DefS _ _ _ -> show $ globalValueS progs offset
                                  DefF _ _ _ -> show $ globalValueF progs offset
                                  DefV _ _ _ -> show $ globalValueV progs offset
-                                 DefE _ _ _ -> show offset
-                                 DefField _ _ _ -> show offset
-                                 DefFunc _ _ _ ->  show offset
-                                 DefPtr _ _ _ -> show offset
+                                 DefE _ _ _ -> "entity&" ++ show offset
+                                 DefField _ _ _ -> "field&" ++ show offset
+                                 DefFunc _ _ _ ->  "func&" ++ show offset
+                                 DefPtr _ _ _ -> "ptr&" ++ show offset
                 name -> name
     Nothing -> "&" ++ show offset
 
-prettyOp :: Progs -> Op -> String
-prettyOp progs op =
+prettyOp :: Progs -> Int -> Op -> String
+prettyOp progs opIndex op =
   case op of
     OpReturn r -> "return (&" ++ show r ++ ", &" ++ show (r+1) ++ ", &" ++ show (r+2) ++ ")"
     OpMulF a b c -> assign a b c fAt "*"
@@ -134,14 +139,14 @@ prettyOp progs op =
     OpNotS a c -> fAt c ++ " = !" ++ sAt a
     OpNotE a c -> fAt c ++ " = !" ++ eAt a
     OpNotFunc a c -> fAt c ++ " = !" ++ funcAt a
-    OpIf a c -> "if(" ++ fAt a ++ ") goto +" ++ show (word16ToSigned c)
-    OpIfNot a c -> "if(!" ++ fAt a ++ ") goto +" ++ show (word16ToSigned c)
+    OpIf a c -> "if(" ++ fAt a ++ ") goto " ++ show (opIndex + word16ToSigned c)
+    OpIfNot a c -> "if(!" ++ fAt a ++ ") goto " ++ show (opIndex + word16ToSigned c)
     OpCall _ f ->
       case globalAtOffset progs f of
         Just def -> B.unpack $ defName def
         Nothing -> "!" ++ show f
-    OpState a b -> "state(" ++ show a ++ ", " ++ show b ++ ")"
-    OpGoto a -> "goto " ++ show (word16ToSigned a)
+    OpState a b -> "self.frame = " ++ fAt a ++ "; self.think = " ++ funcAt b
+    OpGoto a -> "goto " ++ show (opIndex + word16ToSigned a)
     OpAnd a b c -> assign a b c fAt "&&"
     OpOr a b c -> assign a b c fAt "||"
     OpBitAnd a b c -> assign a b c fAt "&"
@@ -159,17 +164,14 @@ prettyOp progs op =
     eAt :: Word16 -> String
     eAt = globalAsValue progs
 
+    funcAt :: Word16 -> String
+    funcAt = globalAsValue progs
+
     fieldAt :: Word16 -> String
     fieldAt a =
       case fieldAtOffset progs a of
         Just f -> "." ++ B.unpack (defName f)
         Nothing -> "field&." ++ show a
-
-    funcAt :: Word16 -> String
-    funcAt a =
-      case globalAtOffset progs a of
-        Just d -> B.unpack $ defName d
-        Nothing -> "func&" ++ show a
 
     vAtInd :: Word16 -> Int -> String
     vAtInd a i = vAt a ++ "[" ++ show i ++ "]"
@@ -186,8 +188,9 @@ dumpOps progs off = do
   putStrLn ""
   where
     dump :: Vector B.ByteString -> Int -> [Int] -> [Int] -> IO [Int]
+    dump _ offset _ visited | offset `L.elem` visited = return visited
     dump args offset toVisit visited = do
-      putStr $ show offset ++ ": " ++ prettyOp progs op
+      putStr $ show offset ++ ": " ++ prettyOp progs offset op
       case op of
         OpStoreF a c -> next $ updateArgs a c
         OpStoreV a c -> next $ updateArgs a c
@@ -197,6 +200,10 @@ dumpOps progs off = do
         OpCall n _ -> do
           putStr $ "(" ++ B.unpack (B.intercalate (B.pack ", ") (toList (Data.Vector.take n args))) ++ ")"
           next args
+
+        OpGoto a | succ offset `Prelude.elem` toVisit -> do
+          putStrLn ""
+          dump args (succ offset) ((offset + word16ToSigned a):toVisit) (offset:visited)
 
         OpGoto a | not ((offset + word16ToSigned a) `Prelude.elem` visited) -> do
           putStrLn ""
@@ -212,10 +219,7 @@ dumpOps progs off = do
 
         OpReturn _ -> do
           putStrLn ""
-          foldM (\allVisited toV -> case toV `Prelude.elem` visited of
-                                      False -> dump args toV [] allVisited
-                                      True -> return allVisited
-                ) visited toVisit
+          foldM (\allVisited toV -> dump args toV [] allVisited) (offset:visited) toVisit
 
         _ ->
           next args
@@ -224,8 +228,6 @@ dumpOps progs off = do
         next args' = do
           putStrLn ""
           dump args' (succ offset) toVisit (offset:visited)
-        at a = case globalAtOffset progs a of
-          Just d -> defName d
-          Nothing -> B.pack ("&" ++ show a)
+        at = B.pack . globalAsValue progs
         updateArgs a c | c `L.elem` [4, 7, 10, 13, 16, 19, 22, 25] = args // [((fromIntegral c - 4) `div` 3, at a)]
                        | otherwise = args
