@@ -7,7 +7,6 @@ import qualified Data.ByteString.Lazy as L
 import Data.Binary.Get
 import Data.Bits (Bits, clearBit, complement, testBit)
 import Data.List
-import Data.Maybe (fromJust)
 import qualified Data.Vector as V
 import Data.Word
 
@@ -99,11 +98,11 @@ relink progs =
                             ) $ progsFuncs progs }
   where
     globalAtOffset off =
-      fromJust $ find ((==) off . defOffset) $ progsGlobals progs
+      find ((==) off . defOffset) $ progsGlobals progs
     relinkLocals :: [Local] -> [Local]
     relinkLocals =
       map $ \l -> case l of
-                    LocalAt off -> Local $ globalAtOffset off
+                    LocalAt off -> maybe l (\d -> Local d) $ globalAtOffset off
                     _ -> error "already relinked locals?"
 
 decoder :: Get (Either String Progs)
