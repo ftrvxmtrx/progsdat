@@ -28,11 +28,11 @@ findFunc p name =
 
 globalAtOffset :: Progs -> Word16 -> Maybe Def
 globalAtOffset p off =
-  find ((==) off . defOffset) $ progsGlobals p
+  maybe Nothing id $ progsGlobals p !? fromIntegral off
 
 fieldAtOffset :: Progs -> Word16 -> Maybe Def
 fieldAtOffset p off =
-  find ((==) off . defOffset) $ progsFields p
+  maybe Nothing id $ progsFields p !? fromIntegral off
 
 assign :: Word16 -> Word16 -> Word16 -> (Word16 -> String) -> String -> String
 assign a b c at o =
@@ -71,14 +71,14 @@ globalAsValue progs offset =
   case globalAtOffset progs offset of
     Just d -> case B.unpack $ defName d of
                 "IMMEDIATE" -> case d of
-                                 DefVoid _ _ _ -> "void"
-                                 DefS _ _ _ -> show $ globalValueS progs offset
-                                 DefF _ _ _ -> show $ globalValueF progs offset
-                                 DefV _ _ _ -> show $ globalValueV progs offset
-                                 DefE _ _ _ -> "entity&" ++ show offset
-                                 DefField _ _ _ -> "field&" ++ show offset
-                                 DefFunc _ _ _ ->  "func&" ++ show offset
-                                 DefPtr _ _ _ -> "ptr&" ++ show offset
+                                 DefVoid _ _ -> "void"
+                                 DefS _ _ -> show $ globalValueS progs offset
+                                 DefF _ _ -> show $ globalValueF progs offset
+                                 DefV _ _ -> show $ globalValueV progs offset
+                                 DefE _ _ -> "entity&" ++ show offset
+                                 DefField _ _ -> "field&" ++ show offset
+                                 DefFunc _ _ ->  "func&" ++ show offset
+                                 DefPtr _ _ -> "ptr&" ++ show offset
                 name -> name
     Nothing -> "&" ++ show offset
 

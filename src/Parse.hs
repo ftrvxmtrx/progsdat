@@ -30,9 +30,17 @@ parseOps progs num = do
   ops <- V.replicateM num $ mkOp <$> getWord16le <*> getWord16le <*> getWord16le <*> getWord16le
   return progs{progsOps = ops}
 
-parseDefs :: Progs -> Int -> Get (V.Vector Def)
-parseDefs progs num =
-  V.replicateM num $ mkDef <$> getWord16le <*> getWord16le <*> parseString progs
+parseDefs :: Progs -> Int -> Get (V.Vector (Maybe Def))
+parseDefs progs num = do
+  defs <- V.replicateM num $ do
+    t <- getWord16le
+    off <- getWord16le
+    name <- parseString progs
+    return (t, off, name)
+  let (maxDefOffset, updates) = V.ifoldl' (\(maxOffset, upd) _ (t, off, name) -> do
+                                            (max maxOffset off, (fromIntegral off, Just $ mkDef t name):upd)
+                                          ) (0, []) defs
+  return $ V.replicate (succ $ fromIntegral maxDefOffset) Nothing V.// updates
 
 parseGlobals :: SectionParser
 parseGlobals progs num = do
@@ -98,7 +106,7 @@ relink progs =
                             ) $ progsFuncs progs }
   where
     globalAtOffset off =
-      find ((==) off . defOffset) $ progsGlobals progs
+      progsGlobals progs V.! fromIntegral off
     relinkLocals :: [Local] -> [Local]
     relinkLocals =
       map $ \l -> case l of
@@ -206,7 +214,7 @@ mkOp n a b c =
     65 -> OpBitOr a b c
     _ -> error "invalid opcode"
 
-mkDef :: (Bits a, Integral a) => a -> Word16 -> B.ByteString -> Def
+mkDef :: (Bits a, Integral a) => a -> B.ByteString -> Def
 mkDef t =
   case t `clearBit` 15 of
     0 -> DefVoid

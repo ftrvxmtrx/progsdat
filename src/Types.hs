@@ -63,35 +63,25 @@ data Op = OpReturn !Word16
         | OpBitOr !Word16 !Word16 !Word16
         deriving Show
 
-data Def = DefVoid !Bool !Word16 !ByteString
-         | DefS !Bool !Word16 !ByteString
-         | DefF !Bool !Word16 !ByteString
-         | DefV !Bool !Word16 !ByteString
-         | DefE !Bool !Word16 !ByteString
-         | DefField !Bool !Word16 !ByteString
-         | DefFunc !Bool !Word16 !ByteString
-         | DefPtr !Bool !Word16 !ByteString
+data Def = DefVoid !Bool !ByteString
+         | DefS !Bool !ByteString
+         | DefF !Bool !ByteString
+         | DefV !Bool !ByteString
+         | DefE !Bool !ByteString
+         | DefField !Bool !ByteString
+         | DefFunc !Bool !ByteString
+         | DefPtr !Bool !ByteString
          deriving Show
 
 defName :: Def -> ByteString
-defName (DefVoid _ _ name) = name
-defName (DefS _ _ name) = name
-defName (DefF _ _ name) = name
-defName (DefV _ _ name) = name
-defName (DefE _ _ name) = name
-defName (DefField _ _ name) = name
-defName (DefFunc _ _ name) = name
-defName (DefPtr _ _ name) = name
-
-defOffset :: Def -> Word16
-defOffset (DefVoid _ offset _) = offset
-defOffset (DefS _ offset _) = offset
-defOffset (DefF _ offset _) = offset
-defOffset (DefV _ offset _) = offset
-defOffset (DefE _ offset _) = offset
-defOffset (DefField _ offset _) = offset
-defOffset (DefFunc _ offset _) = offset
-defOffset (DefPtr _ offset _) = offset
+defName (DefVoid _ name) = name
+defName (DefS _ name) = name
+defName (DefF _ name) = name
+defName (DefV _ name) = name
+defName (DefE _ name) = name
+defName (DefField _ name) = name
+defName (DefFunc _ name) = name
+defName (DefPtr _ name) = name
 
 data Local = LocalAt !Word16
            | Local Def
@@ -109,8 +99,8 @@ data Func = Func { funcName       :: !ByteString
           deriving Show
 
 data Progs = Progs { progsOps          :: Vector Op
-                   , progsGlobals      :: Vector Def
-                   , progsFields       :: Vector Def
+                   , progsGlobals      :: Vector (Maybe Def)
+                   , progsFields       :: Vector (Maybe Def)
                    , progsFuncs        :: Vector Func
                    , progsStrings      :: ByteString
                    , progsGlobalValues :: ByteString
