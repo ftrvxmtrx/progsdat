@@ -85,7 +85,7 @@ globalAsValue progs offset =
 prettyOp :: Progs -> Int -> Op -> String
 prettyOp progs opIndex op =
   case op of
-    OpReturn r -> "return (&" ++ show r ++ ", &" ++ show (r+1) ++ ", &" ++ show (r+2) ++ ")"
+    OpReturn r -> "return " ++ globalAsValue progs r
     OpMulF a b c -> assign a b c fAt "*"
     OpMulV a b c -> assign a b c vAt "*"
     OpMulFV a b c -> vAt c ++ " = {" ++ fAt a ++ "*" ++ vAtInd b 0 ++ ", " ++
