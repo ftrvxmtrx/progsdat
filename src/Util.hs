@@ -40,9 +40,9 @@ assign a b c at o =
 
 word16ToSigned :: Word16 -> Int
 word16ToSigned w =
-  fromIntegral $ case w `testBit` 15 of
-      False -> w
-      True -> complement $ pred w
+  case w `testBit` 15 of
+      False -> fromIntegral w
+      True -> 0 - (fromIntegral . complement $ pred w)
 
 word32At :: Word16 -> BS.ByteString -> Word32
 word32At offset bs =
