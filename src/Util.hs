@@ -182,12 +182,6 @@ prettyOp progs opIndex op =
     vAtInd :: Word16 -> Int -> String
     vAtInd a i = vAt a ++ "[" ++ show i ++ "]"
 
-    globalFromAddr :: Word16 -> String
-    globalFromAddr b =
-      case globalAtOffset progs (fromIntegral $ word32At b (progsGlobalValues progs)) of
-        Just f -> B.unpack (defName f)
-        Nothing -> "&" ++ show b
-
     assignField :: Word16 -> Word16 -> Word16 -> (Word16 -> String) -> String
     assignField a b c at =
       at c ++ " = " ++ eAt a ++ "." ++ fieldFromAddr progs b
