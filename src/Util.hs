@@ -121,7 +121,7 @@ prettyOp progs opIndex op =
     OpLoadE a b c -> assignField a b c eAt
     OpLoadField a b c -> assignField a b c fieldAt
     OpLoadFunc a b c -> assignField a b c funcAt
-    OpAddress _ _ _ -> "FIXME address"
+    OpAddress a b c -> fAt c ++ " = &" ++ eAt a ++ "." ++ fieldFromAddr b
     OpStoreF a c -> fAt c ++ " = " ++ fAt a
     OpStoreV a c -> vAt c ++ " = " ++ vAt a
     OpStoreS a c -> sAt c ++ " = " ++ sAt a
@@ -176,11 +176,15 @@ prettyOp progs opIndex op =
     vAtInd :: Word16 -> Int -> String
     vAtInd a i = vAt a ++ "[" ++ show i ++ "]"
 
+    fieldFromAddr :: Word16 -> String
+    fieldFromAddr b =
+      case fieldAtOffset progs (fromIntegral $ word32At b (progsGlobalValues progs)) of
+        Just f -> B.unpack (defName f)
+        Nothing -> "&" ++ show b
+
     assignField :: Word16 -> Word16 -> Word16 -> (Word16 -> String) -> String
     assignField a b c at =
-      at c ++ " = " ++ eAt a ++ "." ++ case fieldAtOffset progs (fromIntegral $ word32At b (progsGlobalValues progs)) of
-                                         Just f -> B.unpack (defName f)
-                                         Nothing -> "&" ++ show b
+      at c ++ " = " ++ eAt a ++ "." ++ fieldFromAddr b
 
 dumpOps :: Progs -> Int -> IO ()
 dumpOps progs off = do
