@@ -128,12 +128,12 @@ prettyOp progs opIndex op =
     OpStoreE a c -> eAt c ++ " = " ++ eAt a
     OpStoreField a c -> fAt c ++ " = " ++ fieldAt a
     OpStoreFunc a c -> funcAt c ++ " = " ++ funcAt a
-    OpStorePtrF _ _ -> "FIXME store ptr f"
-    OpStorePtrV _ _ -> "FIXME store ptr v"
-    OpStorePtrS _ _ -> "FIXME store ptr s"
-    OpStorePtrE _ _ -> "FIXME store ptr e"
-    OpStorePtrField _ _ -> "FIXME store ptr field"
-    OpStorePtrFunc _ _ -> "FIXME store ptr func"
+    OpStorePtrF a b -> "*" ++ show b ++ " = " ++ globalAsValue progs a
+    OpStorePtrV a b -> "*" ++ show b ++ " = " ++ globalAsValue progs a
+    OpStorePtrS a b -> "*" ++ show b ++ " = " ++ globalAsValue progs a
+    OpStorePtrE a b -> "*" ++ show b ++ " = " ++ globalAsValue progs a
+    OpStorePtrField a b -> "*" ++ show b ++ " = " ++ globalAsValue progs a
+    OpStorePtrFunc a b -> "*" ++ show b ++ " = " ++ globalAsValue progs a
     OpNotF a c -> fAt c ++ " = !" ++ fAt a
     OpNotV a c -> fAt c ++ " = !" ++ vAt a
     OpNotS a c -> fAt c ++ " = !" ++ sAt a
@@ -179,6 +179,12 @@ prettyOp progs opIndex op =
     fieldFromAddr :: Word16 -> String
     fieldFromAddr b =
       case fieldAtOffset progs (fromIntegral $ word32At b (progsGlobalValues progs)) of
+        Just f -> B.unpack (defName f)
+        Nothing -> "&" ++ show b
+
+    globalFromAddr :: Word16 -> String
+    globalFromAddr b =
+      case globalAtOffset progs (fromIntegral $ word32At b (progsGlobalValues progs)) of
         Just f -> B.unpack (defName f)
         Nothing -> "&" ++ show b
 
