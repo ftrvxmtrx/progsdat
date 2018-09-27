@@ -82,6 +82,12 @@ globalAsValue progs offset =
                 name -> name
     Nothing -> "&" ++ show offset
 
+fieldFromAddr :: Progs -> Word16 -> String
+fieldFromAddr progs b =
+  case fieldAtOffset progs (fromIntegral $ word32At b (progsGlobalValues progs)) of
+    Just f -> B.unpack (defName f)
+    Nothing -> "&" ++ show b
+
 prettyOp :: Progs -> Int -> Op -> String
 prettyOp progs opIndex op =
   case op of
@@ -121,7 +127,7 @@ prettyOp progs opIndex op =
     OpLoadE a b c -> assignField a b c eAt
     OpLoadField a b c -> assignField a b c fieldAt
     OpLoadFunc a b c -> assignField a b c funcAt
-    OpAddress a b c -> fAt c ++ " = &" ++ eAt a ++ "." ++ fieldFromAddr b
+    OpAddress a b c -> fAt c ++ " = &" ++ eAt a ++ "." ++ fieldFromAddr progs b
     OpStoreF a c -> fAt c ++ " = " ++ fAt a
     OpStoreV a c -> vAt c ++ " = " ++ vAt a
     OpStoreS a c -> sAt c ++ " = " ++ sAt a
@@ -176,12 +182,6 @@ prettyOp progs opIndex op =
     vAtInd :: Word16 -> Int -> String
     vAtInd a i = vAt a ++ "[" ++ show i ++ "]"
 
-    fieldFromAddr :: Word16 -> String
-    fieldFromAddr b =
-      case fieldAtOffset progs (fromIntegral $ word32At b (progsGlobalValues progs)) of
-        Just f -> B.unpack (defName f)
-        Nothing -> "&" ++ show b
-
     globalFromAddr :: Word16 -> String
     globalFromAddr b =
       case globalAtOffset progs (fromIntegral $ word32At b (progsGlobalValues progs)) of
@@ -190,7 +190,7 @@ prettyOp progs opIndex op =
 
     assignField :: Word16 -> Word16 -> Word16 -> (Word16 -> String) -> String
     assignField a b c at =
-      at c ++ " = " ++ eAt a ++ "." ++ fieldFromAddr b
+      at c ++ " = " ++ eAt a ++ "." ++ fieldFromAddr progs b
 
 dumpOps :: Progs -> Int -> IO ()
 dumpOps progs off = do
@@ -202,6 +202,12 @@ dumpOps progs off = do
     dump args offset toVisit visited = do
       putStr $ show offset ++ ": " ++ prettyOp progs offset op
       case op of
+        OpLoadF a b c -> next $ updateArgsField a b c
+        OpLoadV a b c -> next $ updateArgsField a b c
+        OpLoadS a b c -> next $ updateArgsField a b c
+        OpLoadE a b c -> next $ updateArgsField a b c
+        OpLoadField a b c -> next $ updateArgsField a b c
+        OpLoadFunc a b c -> next $ updateArgsField a b c
         OpStoreF a c -> next $ updateArgs a c
         OpStoreV a c -> next $ updateArgs a c
         OpStoreS a c -> next $ updateArgs a c
@@ -239,5 +245,10 @@ dumpOps progs off = do
           putStrLn ""
           dump args' (succ offset) toVisit (offset:visited)
         at = B.pack . globalAsValue progs
-        updateArgs a c | c `L.elem` [4, 7, 10, 13, 16, 19, 22, 25] = args // [((fromIntegral c - 4) `div` 3, at a)]
+        isArgOffset x = x `L.elem` [4, 7, 10, 13, 16, 19, 22, 25]
+        argOffsetToIndex x = (fromIntegral x - 4) `div` 3
+        updateArgs a c | isArgOffset c = args // [(argOffsetToIndex c, at a)]
                        | otherwise = args
+        updateArgsField a b c | isArgOffset c =
+                                args // [(argOffsetToIndex c, B.pack (globalAsValue progs a ++ "." ++ fieldFromAddr progs b))]
+                              | otherwise = args
