@@ -49,7 +49,8 @@ parseGlobals progs num = do
 
 parseFields :: SectionParser
 parseFields progs num = do
-  defs <- parseDefs progs num
+  skip 8 -- first one is void and updating the same element in a vector doesn't work? what...
+  defs <- parseDefs progs (pred num)
   return progs{progsFields = defs}
 
 parseFuncs :: SectionParser
